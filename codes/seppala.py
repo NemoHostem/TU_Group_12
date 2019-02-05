@@ -23,10 +23,23 @@ le.fit(y_train)
 y_train = le.transform(y_train)
 
 splitter = model_selection.GroupShuffleSplit(test_size=0.2)
-X_train, X_test, y_train, y_test = splitter.split(X_train, y_train, y_train_data["group_id"])
+splitter.split(X_train, y_train, y_train_data["group_id"])
 
-X_train_init = np.array([x.ravel() for x in X_train])
+#%% 4 (a)
+
+X_train = np.array([x.ravel() for x in X_train])
 XX_test = np.array([x.ravel() for x in XX_test])
+
+#%% (b)
+
+X_train2 = np.mean(X_train,axis=2)
+
+#%% (c)
+
+X_train3 = np.std(X_train,axis=2)
+X_train3 = np.concatenate((X_train2, X_train3), axis=1)
+
+#%%
 
 clf = discriminant_analysis.LinearDiscriminantAnalysis()
 clf.fit(X_train, y_train)
@@ -42,12 +55,17 @@ classifiers= [neighbors.KNeighborsClassifier(),
               svm.SVC(),
               linear_model.LogisticRegression()]
 
-for classifier in classifiers:
+classifiers_names = ["KNN","LDA","SVC","LR"]
+
+for i, classifier in enumerate(classifiers):
     classifier.fit(X_train,y_train)
     
-    print(accuracy_score(y_test, classifier.predict(X_test)))
+    print(classifiers_names[i]+": "+str(100*accuracy_score(y_train, classifier.predict(X_train)))+" %")
     
 #%%
+
+'''Experiment with xgboost; problems installing it
+'''
 
 import xgboost as xgb
 
