@@ -107,16 +107,17 @@ preds = bst.predict(dtest)
 
 #%% Create submission file
 
-''' Extra Trees chosen as the classifier
+''' RandomForest chosen as the classifier
 '''
-classifier = classifiers[8]
+classifier = classifiers[6]
 
 y_pred = classifier.predict(X_kaggle_test)
 labels = list(le.inverse_transform(y_pred))
 with open("submission.csv", "w") as fp:
     fp.write("# Id,Surface\n")
     for i, label in enumerate(labels):
-        fp.write("%d,%s\n" % (i, label))
+        print (str(label)[2:-1])
+        fp.write("%d,%s\n" % (i, str(label)[2:-1]))
 
 
 #%%
