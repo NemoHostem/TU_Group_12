@@ -5,83 +5,113 @@ Created on Mon Feb  4 20:05:45 2019
 @author: jonis
 """
 
-#%%
+#%% 1. Load data
 
 import numpy as np
 from sklearn import preprocessing
-from sklearn import model_selection
+from sklearn.model_selection import GroupShuffleSplit
 from sklearn import discriminant_analysis
 from sklearn.metrics import accuracy_score
 
-X_train = np.load("X_train_kaggle.npy")
-XX_test = np.load("X_test_kaggle.npy")
-y_train_data = np.genfromtxt("groups.csv", delimiter=",", dtype=[("id",np.uint),("group_id",np.uint),("surface","S22")])
+path = '../data/'
+
+X_train = np.load(path+"X_train_kaggle.npy")
+X_kaggle_test = np.load(path+"X_test_kaggle.npy")
+y_train_data = np.genfromtxt(path+"groups.csv", delimiter=",", dtype=[("id",np.uint),("group_id",np.uint),("surface","S22")])
 y_train = y_train_data["surface"]
+
+#%% 2. Create an index of class names.
 
 le = preprocessing.LabelEncoder()
 le.fit(y_train)
 y_train = le.transform(y_train)
 
-splitter = model_selection.GroupShuffleSplit(test_size=0.2)
-splitter.split(X_train, y_train, y_train_data["group_id"])
+#%% 3. Split to training and testing.
 
-#%% 4 (a)
+groups = y_train_data["group_id"]
+train, test = next(GroupShuffleSplit(n_splits=1,test_size=0.2).split(X_train, groups=groups))
+X_train, X_test, y_train, y_test = X_train[train], X_train[test], y_train[train], y_train[test]
 
-X_train = np.array([x.ravel() for x in X_train])
-XX_test = np.array([x.ravel() for x in XX_test])
+#%% 4 (a) Straightforward reshape
 
-#%% (b)
+X_train1 = np.array([x.ravel() for x in X_train])
+X_test1 = np.array([x.ravel() for x in X_test])
+
+#%% (b) The average over the time axis
 
 X_train2 = np.mean(X_train,axis=2)
+X_test2 = np.mean(X_test,axis=2)
 
-#%% (c)
+X_kaggle_test2 = np.mean(X_kaggle_test,axis=2)
 
-X_train3 = np.std(X_train,axis=2)
-X_train3 = np.concatenate((X_train2, X_train3), axis=1)
+#%% (c) The average and standard deviation over the time axis
 
-#%%
+''' Chosen vectorization approach
+'''
 
-clf = discriminant_analysis.LinearDiscriminantAnalysis()
-clf.fit(X_train, y_train)
+X_train = np.std(X_train,axis=2)
+X_train = np.concatenate((X_train2, X_train), axis=1)
 
-print(accuracy_score(clf.predict(X_train),y_train))
+X_test = np.std(X_test,axis=2)
+X_test = np.concatenate((X_test2, X_test), axis=1)
 
-#%%
+#competition testing data
+X_kaggle_test = np.std(X_kaggle_test,axis=2)
+X_kaggle_test = np.concatenate((X_kaggle_test2, X_kaggle_test), axis=1)
 
-from sklearn import neighbors, discriminant_analysis, svm, linear_model
+#%% LDA test
 
-classifiers= [neighbors.KNeighborsClassifier(),
+'''
+lda = discriminant_analysis.LinearDiscriminantAnalysis()
+lda.fit(X_train, y_train)
+
+print(accuracy_score(lda.predict(X_test),y_test))
+'''
+
+#%% 5. Try different models
+
+from sklearn import neighbors, svm, linear_model
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
+
+classifiers= [neighbors.KNeighborsClassifier(n_neighbors=1),
+              neighbors.KNeighborsClassifier(n_neighbors=5),
               discriminant_analysis.LinearDiscriminantAnalysis(),
-              svm.SVC(),
-              linear_model.LogisticRegression()]
+              svm.SVC(kernel="linear"),
+              svm.SVC(kernel="rbf",gamma="auto"),
+              linear_model.LogisticRegression(solver="lbfgs", multi_class="multinomial",max_iter=2000),
+              RandomForestClassifier(n_estimators=1000),
+              AdaBoostClassifier(),
+              ExtraTreesClassifier(n_estimators=1000),
+              GradientBoostingClassifier()]
 
-classifiers_names = ["KNN","LDA","SVC","LR"]
+classifiers_names = ["1-NN","5-NN","LDA","Linear SVC","RBF SVC","Logistic Regression","RandomForest","AdaBoost","Extra Trees","GB-Trees"]
 
 for i, classifier in enumerate(classifiers):
     classifier.fit(X_train,y_train)
+    print(classifiers_names[i]+": "+str(100*accuracy_score(y_test, classifier.predict(X_test)))+" %")
     
-    print(classifiers_names[i]+": "+str(100*accuracy_score(y_train, classifier.predict(X_train)))+" %")
-    
-#%%
+#%% Experiment with xgboost; still don't quite understand how it should work
 
-'''Experiment with xgboost; problems installing it
 '''
-
 import xgboost as xgb
 
-dtrain = xgb.DMatrix('demo/data/agaricus.txt.train')
-dtest = xgb.DMatrix('demo/data/agaricus.txt.test')
+dtrain = xgb.DMatrix(X_train,label=y_train)
+dtest = xgb.DMatrix(X_test,label=y_test)
 # specify parameters via map
 param = {'max_depth':2, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
 num_round = 2
 bst = xgb.train(param, dtrain, num_round)
 # make prediction
 preds = bst.predict(dtest)
+'''
 
+#%% Create submission file
 
-#%%
+''' Extra Trees chosen as the classifier
+'''
+classifier = classifiers[8]
 
-y_pred = classifier.predict(X_train)
+y_pred = classifier.predict(X_kaggle_test)
 labels = list(le.inverse_transform(y_pred))
 with open("submission.csv", "w") as fp:
     fp.write("# Id,Surface\n")
