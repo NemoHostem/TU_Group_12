@@ -29,7 +29,7 @@ y_train = le.transform(y_train)
 #%% 3. Split to training and testing.
 
 groups = y_train_data["group_id"]
-train, test = next(GroupShuffleSplit(n_splits=1,test_size=0.2).split(X_train, groups=groups))
+train, test = next(GroupShuffleSplit(n_splits=1,test_size=0.1).split(X_train, groups=groups))
 X_train, X_test, y_train, y_test = X_train[train], X_train[test], y_train[train], y_train[test]
 
 #%% 4 (a) Straightforward reshape
@@ -73,22 +73,44 @@ print(accuracy_score(lda.predict(X_test),y_test))
 from sklearn import neighbors, svm, linear_model
 from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 
-classifiers= [neighbors.KNeighborsClassifier(n_neighbors=1),
+classifiers= [#neighbors.KNeighborsClassifier(n_neighbors=1),
               neighbors.KNeighborsClassifier(n_neighbors=5),
               discriminant_analysis.LinearDiscriminantAnalysis(),
               svm.SVC(kernel="linear"),
-              svm.SVC(kernel="rbf",gamma="auto"),
+              #svm.SVC(kernel="rbf",gamma="auto"),
               linear_model.LogisticRegression(solver="lbfgs", multi_class="multinomial",max_iter=2000),
               RandomForestClassifier(n_estimators=1000),
-              AdaBoostClassifier(),
+              #AdaBoostClassifier(),
               ExtraTreesClassifier(n_estimators=1000),
               GradientBoostingClassifier()]
 
-classifiers_names = ["1-NN","5-NN","LDA","Linear SVC","RBF SVC","Logistic Regression","RandomForest","AdaBoost","Extra Trees","GB-Trees"]
+classifiers_names = [#"1-NN",
+                     "5-NN",
+                     "LDA",
+                     "Linear SVC",
+                     #"RBF SVC",
+                     "Logistic Regression",
+                     "RandomForest",
+                     #"AdaBoost",
+                     "Extra Trees",
+                     "GB-Trees"]
 
 for i, classifier in enumerate(classifiers):
     classifier.fit(X_train,y_train)
     print(classifiers_names[i]+": "+str(100*accuracy_score(y_test, classifier.predict(X_test)))+" %")
+    
+y_preds = []
+for clf in classifiers:
+    y_preds.append(classifier.predict(X_test))
+
+y_pred = []
+for i in range(len(y_preds[0])):
+    preds = []
+    for j in range(len(y_preds)):
+        preds.append(y_preds[j][i])
+    y_pred.append(np.argmax(np.bincount(preds)))
+
+print("\nMost common vote:",100*accuracy_score(y_test,y_pred),"%\n")
     
 #%% Experiment with xgboost; still don't quite understand how it should work
 
@@ -107,16 +129,27 @@ preds = bst.predict(dtest)
 
 #%% Create submission file
 
-''' RandomForest chosen as the classifier
-'''
-classifier = classifiers[6]
+#''' RandomForest chosen as the classifier
+#'''
+#classifier = classifiers[6]
+#y_pred = classifier.predict(X_kaggle_test)
 
-y_pred = classifier.predict(X_kaggle_test)
+y_preds = []
+for clf in classifiers:
+    y_preds.append(classifier.predict(X_kaggle_test))
+
+y_pred = []
+for i in range(len(y_preds[0])):
+    preds = []
+    for j in range(len(y_preds)):
+        preds.append(y_preds[j][i])
+    y_pred.append(np.argmax(np.bincount(preds)))
+
 labels = list(le.inverse_transform(y_pred))
 with open("submission.csv", "w") as fp:
     fp.write("# Id,Surface\n")
     for i, label in enumerate(labels):
-        print (str(label)[2:-1])
+        #print (str(label)[2:-1])
         fp.write("%d,%s\n" % (i, str(label)[2:-1]))
 
 
