@@ -10,8 +10,11 @@ Created on Mon Feb  4 20:05:45 2019
 import numpy as np
 from sklearn import preprocessing
 from sklearn.model_selection import GroupShuffleSplit
-from sklearn import discriminant_analysis
+from sklearn import neighbors, svm, linear_model, discriminant_analysis
+from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.feature_selection import RFE
+from xgboost import XGBClassifier
 
 path = '../data/'
 
@@ -59,22 +62,17 @@ X_test = np.concatenate((X_test2, X_test), axis=1)
 X_kaggle_test = np.std(X_kaggle_test,axis=2)
 X_kaggle_test = np.concatenate((X_kaggle_test2, X_kaggle_test), axis=1)
 
-#%% LDA test
+#%% Use only 10 most important features (important according to the ensemble methods method "feature_importances_")
 
-'''
-lda = discriminant_analysis.LinearDiscriminantAnalysis()
-lda.fit(X_train, y_train)
-
-print(accuracy_score(lda.predict(X_test),y_test))
-'''
+important_features = [0,1,2,3,11,14,15,17,18,19]
+X_train = X_train[:,important_features]
+X_test = X_test[:,important_features]
+X_kaggle_test = X_kaggle_test[:,important_features]
 
 #%% 5. Try different models
 
-from sklearn import neighbors, svm, linear_model
-from sklearn.ensemble import RandomForestClassifier, AdaBoostClassifier, ExtraTreesClassifier, GradientBoostingClassifier
-
 classifiers= [#neighbors.KNeighborsClassifier(n_neighbors=1),
-              neighbors.KNeighborsClassifier(n_neighbors=5),
+              #neighbors.KNeighborsClassifier(n_neighbors=5),
               discriminant_analysis.LinearDiscriminantAnalysis(),
               svm.SVC(kernel="linear"),
               #svm.SVC(kernel="rbf",gamma="auto"),
@@ -82,26 +80,31 @@ classifiers= [#neighbors.KNeighborsClassifier(n_neighbors=1),
               RandomForestClassifier(n_estimators=1000),
               #AdaBoostClassifier(),
               ExtraTreesClassifier(n_estimators=1000),
-              GradientBoostingClassifier()]
+              GradientBoostingClassifier(),
+              XGBClassifier(n_estimators=1000)]
 
-classifiers_names = [#"1-NN",
-                     "5-NN",
-                     "LDA",
-                     "Linear SVC",
-                     #"RBF SVC",
-                     "Logistic Regression",
-                     "RandomForest",
-                     #"AdaBoost",
-                     "Extra Trees",
-                     "GB-Trees"]
+clf_names = [#"1-NN",
+             #"5-NN",
+             "LDA",
+             "Linear SVC",
+             #"RBF SVC",
+             "Logistic Regression",
+             "RandomForest",
+             #"AdaBoost",
+             "Extra Trees",
+             "GB-Trees",
+             "XGBClassifier"]
 
-for i, classifier in enumerate(classifiers):
-    classifier.fit(X_train,y_train)
-    print(classifiers_names[i]+": "+str(100*accuracy_score(y_test, classifier.predict(X_test)))+" %")
+for i, clf in enumerate(classifiers):
+    clf.fit(X_train,y_train)
+    y_pred = clf.predict(X_test)
+    print(clf_names[i],": %.3f%%" % (100 * accuracy_score(y_test, y_pred)))
+  
+#%%
     
 y_preds = []
 for clf in classifiers:
-    y_preds.append(classifier.predict(X_test))
+    y_preds.append(clf.predict(X_test))
 
 y_pred = []
 for i in range(len(y_preds[0])):
@@ -111,21 +114,6 @@ for i in range(len(y_preds[0])):
     y_pred.append(np.argmax(np.bincount(preds)))
 
 print("\nMost common vote:",100*accuracy_score(y_test,y_pred),"%\n")
-    
-#%% Experiment with xgboost; still don't quite understand how it should work
-
-'''
-import xgboost as xgb
-
-dtrain = xgb.DMatrix(X_train,label=y_train)
-dtest = xgb.DMatrix(X_test,label=y_test)
-# specify parameters via map
-param = {'max_depth':2, 'eta':1, 'silent':1, 'objective':'binary:logistic' }
-num_round = 2
-bst = xgb.train(param, dtrain, num_round)
-# make prediction
-preds = bst.predict(dtest)
-'''
 
 #%% Create submission file
 
@@ -136,7 +124,7 @@ preds = bst.predict(dtest)
 
 y_preds = []
 for clf in classifiers:
-    y_preds.append(classifier.predict(X_kaggle_test))
+    y_preds.append(clf.predict(X_kaggle_test))
 
 y_pred = []
 for i in range(len(y_preds[0])):
@@ -154,3 +142,29 @@ with open("submission.csv", "w") as fp:
 
 
 #%%
+'''
+importances = []
+for clf in classifiers:
+    if hasattr(clf, 'feature_importances_'):
+        importances.append(clf.feature_importances_)
+
+mean_importances = []
+for i,importance in enumerate(importances[0]):
+    mean_importances.append(np.mean([importances[0][i],importances[1][i],importances[2][i]]))
+'''
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
