@@ -7,6 +7,9 @@ Created on Mon Feb  4 20:05:45 2019
 
 #%% 1. Load data
 
+import os
+import glob
+
 import numpy as np
 from sklearn import preprocessing
 from sklearn.model_selection import GroupShuffleSplit
@@ -115,33 +118,7 @@ for i in range(len(y_preds[0])):
 
 print("\nMost common vote:",100*accuracy_score(y_test,y_pred),"%\n")
 
-#%% Create submission file
-
-#''' RandomForest chosen as the classifier
-#'''
-#classifier = classifiers[6]
-#y_pred = classifier.predict(X_kaggle_test)
-
-y_preds = []
-for clf in classifiers:
-    y_preds.append(clf.predict(X_kaggle_test))
-
-y_pred = []
-for i in range(len(y_preds[0])):
-    preds = []
-    for j in range(len(y_preds)):
-        preds.append(y_preds[j][i])
-    y_pred.append(np.argmax(np.bincount(preds)))
-
-labels = list(le.inverse_transform(y_pred))
-with open("submission.csv", "w") as fp:
-    fp.write("# Id,Surface\n")
-    for i, label in enumerate(labels):
-        #print (str(label)[2:-1])
-        fp.write("%d,%s\n" % (i, str(label)[2:-1]))
-
-
-#%%
+#%% A piece of code to find out what features are important
 '''
 importances = []
 for clf in classifiers:
@@ -152,9 +129,55 @@ mean_importances = []
 for i,importance in enumerate(importances[0]):
     mean_importances.append(np.mean([importances[0][i],importances[1][i],importances[2][i]]))
 '''
+#%% Most voted prediction of classifiers
 
+#''' RandomForest chosen as the classifier
+#'''
+#classifier = classifiers[6]
+#y_pred = classifier.predict(X_kaggle_test)
 
+y_preds = []
+for clf in classifiers:
+    y_preds.append(classifiers[-2].predict(X_kaggle_test))
 
+y_pred = []
+for i in range(len(y_preds[0])):
+    preds = []
+    for j in range(len(y_preds)):
+        preds.append(y_preds[j][i])
+    y_pred.append(np.argmax(np.bincount(preds)))
+
+#%% Most voted predictions of already generated csv-files
+
+path = '.\\'
+extension = 'csv'
+
+os.chdir(path)
+csv_files = [i for i in glob.glob('*.{}'.format(extension))]
+
+submissions = []
+for csv_file in csv_files:
+    submission_data = np.genfromtxt(csv_file, delimiter=",", dtype=[("id",np.uint),("surface","S22")])
+    submission = submission_data["surface"]
+    submissions.append(le.transform(submission))
+    
+y_pred = []
+for i in range(len(submissions[0])):
+    preds = []
+    for j in range(len(submissions)):
+        preds.append(submissions[j][i])
+    y_pred.append(np.argmax(np.bincount(preds)))
+
+#%% Create submission file
+
+labels = list(le.inverse_transform(y_pred))
+with open("submission.csv", "w") as fp:
+    fp.write("# Id,Surface\n")
+    for i, label in enumerate(labels):
+        #print (str(label)[2:-1])
+        fp.write("%d,%s\n" % (i, str(label)[2:-1]))
+
+#%%
 
 
 
