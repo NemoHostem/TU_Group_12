@@ -138,7 +138,7 @@ for i,importance in enumerate(importances[0]):
 
 y_preds = []
 for clf in classifiers:
-    y_preds.append(classifiers[-2].predict(X_kaggle_test))
+    y_preds.append(clf.predict(X_kaggle_test))
 
 y_pred = []
 for i in range(len(y_preds[0])):
